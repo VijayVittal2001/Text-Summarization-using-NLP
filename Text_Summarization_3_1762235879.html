@@ -1,0 +1,877 @@
+<div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="co"># Install required libraries</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true"></a><span class="op">!</span>pip install PyMuPDF pytesseract SpeechRecognition gTTS pydub</span></code></pre></div>
+<pre><code>Collecting PyMuPDF
+  Downloading pymupdf-1.26.5-cp39-abi3-manylinux_2_28_x86_64.whl.metadata (3.4 kB)
+Collecting pytesseract
+  Downloading pytesseract-0.3.13-py3-none-any.whl.metadata (11 kB)
+Collecting SpeechRecognition
+  Downloading speechrecognition-3.14.3-py3-none-any.whl.metadata (30 kB)
+Collecting gTTS
+  Downloading gTTS-2.5.4-py3-none-any.whl.metadata (4.1 kB)
+Requirement already satisfied: pydub in /usr/local/lib/python3.12/dist-packages (0.25.1)
+Requirement already satisfied: packaging&gt;=21.3 in /usr/local/lib/python3.12/dist-packages (from pytesseract) (25.0)
+Requirement already satisfied: Pillow&gt;=8.0.0 in /usr/local/lib/python3.12/dist-packages (from pytesseract) (11.3.0)
+Requirement already satisfied: typing-extensions in /usr/local/lib/python3.12/dist-packages (from SpeechRecognition) (4.15.0)
+Requirement already satisfied: requests&lt;3,&gt;=2.27 in /usr/local/lib/python3.12/dist-packages (from gTTS) (2.32.4)
+Collecting click&lt;8.2,&gt;=7.1 (from gTTS)
+  Downloading click-8.1.8-py3-none-any.whl.metadata (2.3 kB)
+Requirement already satisfied: charset_normalizer&lt;4,&gt;=2 in /usr/local/lib/python3.12/dist-packages (from requests&lt;3,&gt;=2.27-&gt;gTTS) (3.4.4)
+Requirement already satisfied: idna&lt;4,&gt;=2.5 in /usr/local/lib/python3.12/dist-packages (from requests&lt;3,&gt;=2.27-&gt;gTTS) (3.11)
+Requirement already satisfied: urllib3&lt;3,&gt;=1.21.1 in /usr/local/lib/python3.12/dist-packages (from requests&lt;3,&gt;=2.27-&gt;gTTS) (2.5.0)
+Requirement already satisfied: certifi&gt;=2017.4.17 in /usr/local/lib/python3.12/dist-packages (from requests&lt;3,&gt;=2.27-&gt;gTTS) (2025.10.5)
+Downloading pymupdf-1.26.5-cp39-abi3-manylinux_2_28_x86_64.whl (24.1 MB)
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m24.1/24.1 MB[0m [31m59.4 MB/s[0m eta [36m0:00:00[0m
+[?25hDownloading pytesseract-0.3.13-py3-none-any.whl (14 kB)
+Downloading speechrecognition-3.14.3-py3-none-any.whl (32.9 MB)
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m32.9/32.9 MB[0m [31m16.1 MB/s[0m eta [36m0:00:00[0m
+[?25hDownloading gTTS-2.5.4-py3-none-any.whl (29 kB)
+Downloading click-8.1.8-py3-none-any.whl (98 kB)
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m98.2/98.2 kB[0m [31m4.5 MB/s[0m eta [36m0:00:00[0m
+[?25hInstalling collected packages: SpeechRecognition, pytesseract, PyMuPDF, click, gTTS
+  Attempting uninstall: click
+    Found existing installation: click 8.3.0
+    Uninstalling click-8.3.0:
+      Successfully uninstalled click-8.3.0
+Successfully installed PyMuPDF-1.26.5 SpeechRecognition-3.14.3 click-8.1.8 gTTS-2.5.4 pytesseract-0.3.13</code></pre>
+<div class="sourceCode" id="cb3"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true"></a><span class="im">import</span> fitz              <span class="co"># For PDF reading</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true"></a><span class="im">import</span> pytesseract       <span class="co"># For image text extraction</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true"></a><span class="im">from</span> PIL <span class="im">import</span> Image</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true"></a><span class="im">import</span> io</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true"></a><span class="im">import</span> speech_recognition <span class="im">as</span> sr</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true"></a><span class="im">from</span> google.colab <span class="im">import</span> files</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true"></a><span class="im">from</span> pydub <span class="im">import</span> AudioSegment</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true"></a><span class="co"># --- 1️⃣ Text Input ---</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true"></a><span class="kw">def</span> get_text_input():</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true"></a>    text <span class="op">=</span> <span class="bu">input</span>(<span class="st">&quot;Enter your text paragraph:</span><span class="ch">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true"></a>    <span class="cf">return</span> text</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true"></a><span class="co"># --- 2️⃣ PDF Upload ---</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true"></a><span class="kw">def</span> get_pdf_text():</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;📄 Upload your PDF file...&quot;</span>)</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true"></a>    uploaded <span class="op">=</span> files.upload()</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true"></a>    <span class="cf">for</span> filename <span class="kw">in</span> uploaded.keys():</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true"></a>        pdf <span class="op">=</span> fitz.<span class="bu">open</span>(filename)</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true"></a>        text <span class="op">=</span> <span class="st">&quot;&quot;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true"></a>        <span class="cf">for</span> page <span class="kw">in</span> pdf:</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true"></a>            text <span class="op">+=</span> page.get_text(<span class="st">&quot;text&quot;</span>)</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true"></a>        <span class="cf">return</span> text</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true"></a><span class="co"># --- 3️⃣ Image Upload ---</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true"></a><span class="kw">def</span> get_image_text():</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;🖼️ Upload your image containing text...&quot;</span>)</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true"></a>    uploaded <span class="op">=</span> files.upload()</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true"></a>    <span class="cf">for</span> filename <span class="kw">in</span> uploaded.keys():</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true"></a>        img <span class="op">=</span> Image.<span class="bu">open</span>(io.BytesIO(uploaded[filename]))</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true"></a>        text <span class="op">=</span> pytesseract.image_to_string(img)</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true"></a>        <span class="cf">return</span> text</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true"></a><span class="co"># --- 4️⃣ Audio Upload (speech to text) ---</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true"></a><span class="kw">def</span> get_audio_text():</span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;🎤 Upload your audio file (wav/mp3)...&quot;</span>)</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true"></a>    uploaded <span class="op">=</span> files.upload()</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true"></a>    recognizer <span class="op">=</span> sr.Recognizer()</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true"></a>    <span class="cf">for</span> filename <span class="kw">in</span> uploaded.keys():</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true"></a>        <span class="co"># Convert mp3 to wav if needed</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true"></a>        <span class="cf">if</span> filename.endswith(<span class="st">&quot;.mp3&quot;</span>):</span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true"></a>            sound <span class="op">=</span> AudioSegment.from_mp3(filename)</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true"></a>            wav_filename <span class="op">=</span> filename.replace(<span class="st">&quot;.mp3&quot;</span>, <span class="st">&quot;.wav&quot;</span>)</span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true"></a>            sound.export(wav_filename, <span class="bu">format</span><span class="op">=</span><span class="st">&quot;wav&quot;</span>)</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true"></a>            filename <span class="op">=</span> wav_filename</span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true"></a>        <span class="cf">with</span> sr.AudioFile(filename) <span class="im">as</span> source:</span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true"></a>            audio <span class="op">=</span> recognizer.record(source)</span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true"></a>            text <span class="op">=</span> recognizer.recognize_google(audio, language<span class="op">=</span><span class="st">&quot;en-IN&quot;</span>)</span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true"></a>            <span class="cf">return</span> text</span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true"></a></span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true"></a><span class="co"># --- 5️⃣ Choose Input Type ---</span></span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;Select input type:&quot;</span>)</span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;1 - Text&quot;</span>)</span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;2 - PDF&quot;</span>)</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;3 - Image&quot;</span>)</span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;4 - Audio&quot;</span>)</span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true"></a></span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true"></a>choice <span class="op">=</span> <span class="bu">input</span>(<span class="st">&quot;Enter choice (1/2/3/4): &quot;</span>)</span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true"></a></span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true"></a><span class="cf">if</span> choice <span class="op">==</span> <span class="st">&quot;1&quot;</span>:</span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true"></a>    extracted_text <span class="op">=</span> get_text_input()</span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true"></a><span class="cf">elif</span> choice <span class="op">==</span> <span class="st">&quot;2&quot;</span>:</span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true"></a>    extracted_text <span class="op">=</span> get_pdf_text()</span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true"></a><span class="cf">elif</span> choice <span class="op">==</span> <span class="st">&quot;3&quot;</span>:</span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true"></a>    extracted_text <span class="op">=</span> get_image_text()</span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true"></a><span class="cf">elif</span> choice <span class="op">==</span> <span class="st">&quot;4&quot;</span>:</span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true"></a>    extracted_text <span class="op">=</span> get_audio_text()</span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true"></a><span class="cf">else</span>:</span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true"></a>    extracted_text <span class="op">=</span> <span class="st">&quot;Invalid choice.&quot;</span></span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true"></a></span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true"></a></span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">✅ Extracted Content:</span><span class="ch">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true"></a><span class="bu">print</span>(extracted_text)</span></code></pre></div>
+<pre><code>/usr/local/lib/python3.12/dist-packages/pydub/utils.py:300: SyntaxWarning: invalid escape sequence &#39;\(&#39;
+  m = re.match(&#39;([su]([0-9]{1,2})p?) \(([0-9]{1,2}) bit\)$&#39;, token)
+/usr/local/lib/python3.12/dist-packages/pydub/utils.py:301: SyntaxWarning: invalid escape sequence &#39;\(&#39;
+  m2 = re.match(&#39;([su]([0-9]{1,2})p?)( \(default\))?$&#39;, token)
+/usr/local/lib/python3.12/dist-packages/pydub/utils.py:310: SyntaxWarning: invalid escape sequence &#39;\(&#39;
+  elif re.match(&#39;(flt)p?( \(default\))?$&#39;, token):
+/usr/local/lib/python3.12/dist-packages/pydub/utils.py:314: SyntaxWarning: invalid escape sequence &#39;\(&#39;
+  elif re.match(&#39;(dbl)p?( \(default\))?$&#39;, token):
+
+
+Select input type:
+1 - Text
+2 - PDF
+3 - Image
+4 - Audio
+Enter choice (1/2/3/4): 1
+Enter your text paragraph:
+In August 2018, the state of Kerala in India faced one of the worst floods in nearly a century. Unusually heavy rainfall caused rivers to overflow, leading to landslides and severe damage across several districts. More than 400 people lost their lives, and thousands were displaced as homes, roads, and bridges were destroyed. The Indian Army, Navy, and National Disaster Response Force (NDRF) carried out massive rescue operations, saving countless lives. The floods also united people across the nation, as volunteers and organizations came forward with donations, relief materials, and rehabilitation support for the affected communities.
+
+✅ Extracted Content:
+
+In August 2018, the state of Kerala in India faced one of the worst floods in nearly a century. Unusually heavy rainfall caused rivers to overflow, leading to landslides and severe damage across several districts. More than 400 people lost their lives, and thousands were displaced as homes, roads, and bridges were destroyed. The Indian Army, Navy, and National Disaster Response Force (NDRF) carried out massive rescue operations, saving countless lives. The floods also united people across the nation, as volunteers and organizations came forward with donations, relief materials, and rehabilitation support for the affected communities.</code></pre>
+<h1 id="text-preprocessing">Text Preprocessing</h1>
+<h1 id="step-1-text-cleaning"><strong>Step 1: Text Cleaning</strong></h1>
+<p>Remove unwanted or noisy parts of the text. Tasks:</p>
+<p>Remove HTML tags</p>
+<p>Remove URLs</p>
+<p>Remove email id, mentions, hashtags</p>
+<p>Remove extra spaces and line breaks</p>
+<p>Convert text to lowercase (optional, depending on model)</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true"></a><span class="im">import</span> re</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true"></a><span class="kw">def</span> clean_text(text):</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true"></a>    <span class="co"># 1️ Remove HTML tags</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true"></a>    text <span class="op">=</span> re.sub(<span class="vs">r&#39;&lt;.*?&gt;&#39;</span>, <span class="st">&#39;&#39;</span>, text)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true"></a>    <span class="co"># 2️ Remove URLs</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true"></a>    text <span class="op">=</span> re.sub(<span class="vs">r&#39;http\S+|www\S+|https\S+&#39;</span>, <span class="st">&#39;&#39;</span>, text, flags<span class="op">=</span>re.MULTILINE)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true"></a>    <span class="co"># 3️ Remove email IDs, mentions (@username), and hashtags (#topic)</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true"></a>    text <span class="op">=</span> re.sub(<span class="vs">r&#39;\S*@\S*\s?&#39;</span>, <span class="st">&#39;&#39;</span>, text)       <span class="co"># emails</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true"></a>    text <span class="op">=</span> re.sub(<span class="vs">r&#39;@\w+&#39;</span>, <span class="st">&#39;&#39;</span>, text)             <span class="co"># mentions</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true"></a>    text <span class="op">=</span> re.sub(<span class="vs">r&#39;#\w+&#39;</span>, <span class="st">&#39;&#39;</span>, text)             <span class="co"># hashtags</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true"></a></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true"></a>    <span class="co"># 4️ Remove numbers and special characters (optional)</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true"></a>    text <span class="op">=</span> re.sub(<span class="vs">r&#39;[^A-Za-z0-9.,!?\&#39;&quot;()\s]&#39;</span>, <span class="st">&#39;&#39;</span>, text)</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true"></a></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true"></a>    <span class="co"># 5️ Remove extra spaces and line breaks</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true"></a>    text <span class="op">=</span> re.sub(<span class="vs">r&#39;\s+&#39;</span>, <span class="st">&#39; &#39;</span>, text).strip()</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true"></a></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true"></a>    <span class="co"># 6️ Convert to lowercase (optional)</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true"></a>    text <span class="op">=</span> text.lower()</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true"></a></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true"></a>    <span class="cf">return</span> text</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true"></a></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true"></a><span class="co"># ✅ Apply cleaning after input extraction</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true"></a>cleaned_text <span class="op">=</span> clean_text(extracted_text)</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true"></a></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🧽 Cleaned Text:</span><span class="ch">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true"></a><span class="bu">print</span>(cleaned_text)</span></code></pre></div>
+<pre><code>🧽 Cleaned Text:
+
+in august 2018, the state of kerala in india faced one of the worst floods in nearly a century. unusually heavy rainfall caused rivers to overflow, leading to landslides and severe damage across several districts. more than 400 people lost their lives, and thousands were displaced as homes, roads, and bridges were destroyed. the indian army, navy, and national disaster response force (ndrf) carried out massive rescue operations, saving countless lives. the floods also united people across the nation, as volunteers and organizations came forward with donations, relief materials, and rehabilitation support for the affected communities.</code></pre>
+<h1 id="tokenization">Tokenization</h1>
+<div class="sourceCode" id="cb7"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true"></a><span class="co"># Install spacy if not installed</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true"></a><span class="op">!</span>pip install spacy</span></code></pre></div>
+<pre><code>Requirement already satisfied: spacy in /usr/local/lib/python3.12/dist-packages (3.8.7)
+Requirement already satisfied: spacy-legacy&lt;3.1.0,&gt;=3.0.11 in /usr/local/lib/python3.12/dist-packages (from spacy) (3.0.12)
+Requirement already satisfied: spacy-loggers&lt;2.0.0,&gt;=1.0.0 in /usr/local/lib/python3.12/dist-packages (from spacy) (1.0.5)
+Requirement already satisfied: murmurhash&lt;1.1.0,&gt;=0.28.0 in /usr/local/lib/python3.12/dist-packages (from spacy) (1.0.13)
+Requirement already satisfied: cymem&lt;2.1.0,&gt;=2.0.2 in /usr/local/lib/python3.12/dist-packages (from spacy) (2.0.11)
+Requirement already satisfied: preshed&lt;3.1.0,&gt;=3.0.2 in /usr/local/lib/python3.12/dist-packages (from spacy) (3.0.10)
+Requirement already satisfied: thinc&lt;8.4.0,&gt;=8.3.4 in /usr/local/lib/python3.12/dist-packages (from spacy) (8.3.6)
+Requirement already satisfied: wasabi&lt;1.2.0,&gt;=0.9.1 in /usr/local/lib/python3.12/dist-packages (from spacy) (1.1.3)
+Requirement already satisfied: srsly&lt;3.0.0,&gt;=2.4.3 in /usr/local/lib/python3.12/dist-packages (from spacy) (2.5.1)
+Requirement already satisfied: catalogue&lt;2.1.0,&gt;=2.0.6 in /usr/local/lib/python3.12/dist-packages (from spacy) (2.0.10)
+Requirement already satisfied: weasel&lt;0.5.0,&gt;=0.1.0 in /usr/local/lib/python3.12/dist-packages (from spacy) (0.4.1)
+Requirement already satisfied: typer&lt;1.0.0,&gt;=0.3.0 in /usr/local/lib/python3.12/dist-packages (from spacy) (0.20.0)
+Requirement already satisfied: tqdm&lt;5.0.0,&gt;=4.38.0 in /usr/local/lib/python3.12/dist-packages (from spacy) (4.67.1)
+Requirement already satisfied: numpy&gt;=1.19.0 in /usr/local/lib/python3.12/dist-packages (from spacy) (2.0.2)
+Requirement already satisfied: requests&lt;3.0.0,&gt;=2.13.0 in /usr/local/lib/python3.12/dist-packages (from spacy) (2.32.4)
+Requirement already satisfied: pydantic!=1.8,!=1.8.1,&lt;3.0.0,&gt;=1.7.4 in /usr/local/lib/python3.12/dist-packages (from spacy) (2.11.10)
+Requirement already satisfied: jinja2 in /usr/local/lib/python3.12/dist-packages (from spacy) (3.1.6)
+Requirement already satisfied: setuptools in /usr/local/lib/python3.12/dist-packages (from spacy) (75.2.0)
+Requirement already satisfied: packaging&gt;=20.0 in /usr/local/lib/python3.12/dist-packages (from spacy) (25.0)
+Requirement already satisfied: langcodes&lt;4.0.0,&gt;=3.2.0 in /usr/local/lib/python3.12/dist-packages (from spacy) (3.5.0)
+Requirement already satisfied: language-data&gt;=1.2 in /usr/local/lib/python3.12/dist-packages (from langcodes&lt;4.0.0,&gt;=3.2.0-&gt;spacy) (1.3.0)
+Requirement already satisfied: annotated-types&gt;=0.6.0 in /usr/local/lib/python3.12/dist-packages (from pydantic!=1.8,!=1.8.1,&lt;3.0.0,&gt;=1.7.4-&gt;spacy) (0.7.0)
+Requirement already satisfied: pydantic-core==2.33.2 in /usr/local/lib/python3.12/dist-packages (from pydantic!=1.8,!=1.8.1,&lt;3.0.0,&gt;=1.7.4-&gt;spacy) (2.33.2)
+Requirement already satisfied: typing-extensions&gt;=4.12.2 in /usr/local/lib/python3.12/dist-packages (from pydantic!=1.8,!=1.8.1,&lt;3.0.0,&gt;=1.7.4-&gt;spacy) (4.15.0)
+Requirement already satisfied: typing-inspection&gt;=0.4.0 in /usr/local/lib/python3.12/dist-packages (from pydantic!=1.8,!=1.8.1,&lt;3.0.0,&gt;=1.7.4-&gt;spacy) (0.4.2)
+Requirement already satisfied: charset_normalizer&lt;4,&gt;=2 in /usr/local/lib/python3.12/dist-packages (from requests&lt;3.0.0,&gt;=2.13.0-&gt;spacy) (3.4.4)
+Requirement already satisfied: idna&lt;4,&gt;=2.5 in /usr/local/lib/python3.12/dist-packages (from requests&lt;3.0.0,&gt;=2.13.0-&gt;spacy) (3.11)
+Requirement already satisfied: urllib3&lt;3,&gt;=1.21.1 in /usr/local/lib/python3.12/dist-packages (from requests&lt;3.0.0,&gt;=2.13.0-&gt;spacy) (2.5.0)
+Requirement already satisfied: certifi&gt;=2017.4.17 in /usr/local/lib/python3.12/dist-packages (from requests&lt;3.0.0,&gt;=2.13.0-&gt;spacy) (2025.10.5)
+Requirement already satisfied: blis&lt;1.4.0,&gt;=1.3.0 in /usr/local/lib/python3.12/dist-packages (from thinc&lt;8.4.0,&gt;=8.3.4-&gt;spacy) (1.3.0)
+Requirement already satisfied: confection&lt;1.0.0,&gt;=0.0.1 in /usr/local/lib/python3.12/dist-packages (from thinc&lt;8.4.0,&gt;=8.3.4-&gt;spacy) (0.1.5)
+Requirement already satisfied: click&gt;=8.0.0 in /usr/local/lib/python3.12/dist-packages (from typer&lt;1.0.0,&gt;=0.3.0-&gt;spacy) (8.1.8)
+Requirement already satisfied: shellingham&gt;=1.3.0 in /usr/local/lib/python3.12/dist-packages (from typer&lt;1.0.0,&gt;=0.3.0-&gt;spacy) (1.5.4)
+Requirement already satisfied: rich&gt;=10.11.0 in /usr/local/lib/python3.12/dist-packages (from typer&lt;1.0.0,&gt;=0.3.0-&gt;spacy) (13.9.4)
+Requirement already satisfied: cloudpathlib&lt;1.0.0,&gt;=0.7.0 in /usr/local/lib/python3.12/dist-packages (from weasel&lt;0.5.0,&gt;=0.1.0-&gt;spacy) (0.23.0)
+Requirement already satisfied: smart-open&lt;8.0.0,&gt;=5.2.1 in /usr/local/lib/python3.12/dist-packages (from weasel&lt;0.5.0,&gt;=0.1.0-&gt;spacy) (7.4.1)
+Requirement already satisfied: MarkupSafe&gt;=2.0 in /usr/local/lib/python3.12/dist-packages (from jinja2-&gt;spacy) (3.0.3)
+Requirement already satisfied: marisa-trie&gt;=1.1.0 in /usr/local/lib/python3.12/dist-packages (from language-data&gt;=1.2-&gt;langcodes&lt;4.0.0,&gt;=3.2.0-&gt;spacy) (1.3.1)
+Requirement already satisfied: markdown-it-py&gt;=2.2.0 in /usr/local/lib/python3.12/dist-packages (from rich&gt;=10.11.0-&gt;typer&lt;1.0.0,&gt;=0.3.0-&gt;spacy) (4.0.0)
+Requirement already satisfied: pygments&lt;3.0.0,&gt;=2.13.0 in /usr/local/lib/python3.12/dist-packages (from rich&gt;=10.11.0-&gt;typer&lt;1.0.0,&gt;=0.3.0-&gt;spacy) (2.19.2)
+Requirement already satisfied: wrapt in /usr/local/lib/python3.12/dist-packages (from smart-open&lt;8.0.0,&gt;=5.2.1-&gt;weasel&lt;0.5.0,&gt;=0.1.0-&gt;spacy) (2.0.0)
+Requirement already satisfied: mdurl~=0.1 in /usr/local/lib/python3.12/dist-packages (from markdown-it-py&gt;=2.2.0-&gt;rich&gt;=10.11.0-&gt;typer&lt;1.0.0,&gt;=0.3.0-&gt;spacy) (0.1.2)</code></pre>
+<div class="sourceCode" id="cb9"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true"></a><span class="im">import</span> spacy</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true"></a><span class="co"># Load English model</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true"></a>nlp <span class="op">=</span> spacy.load(<span class="st">&quot;en_core_web_sm&quot;</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true"></a></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true"></a><span class="co"># Apply tokenization</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true"></a>doc <span class="op">=</span> nlp(cleaned_text)</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true"></a></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true"></a><span class="co"># Extract tokens</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true"></a>word_tokens <span class="op">=</span> [token.text <span class="cf">for</span> token <span class="kw">in</span> doc <span class="cf">if</span> <span class="kw">not</span> token.is_space]</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true"></a></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true"></a><span class="co"># Display output</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🔹 Total Tokens:&quot;</span>, <span class="bu">len</span>(word_tokens))</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🔹 First 30 Tokens:</span><span class="ch">\n</span><span class="st">&quot;</span>, word_tokens[:<span class="dv">30</span>])</span></code></pre></div>
+<pre><code>🔹 Total Tokens: 114
+
+🔹 First 30 Tokens:
+ [&#39;in&#39;, &#39;august&#39;, &#39;2018&#39;, &#39;,&#39;, &#39;the&#39;, &#39;state&#39;, &#39;of&#39;, &#39;kerala&#39;, &#39;in&#39;, &#39;india&#39;, &#39;faced&#39;, &#39;one&#39;, &#39;of&#39;, &#39;the&#39;, &#39;worst&#39;, &#39;floods&#39;, &#39;in&#39;, &#39;nearly&#39;, &#39;a&#39;, &#39;century&#39;, &#39;.&#39;, &#39;unusually&#39;, &#39;heavy&#39;, &#39;rainfall&#39;, &#39;caused&#39;, &#39;rivers&#39;, &#39;to&#39;, &#39;overflow&#39;, &#39;,&#39;, &#39;leading&#39;]</code></pre>
+<div class="sourceCode" id="cb11"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true"></a><span class="co"># Install wordcloud and matplotlib if not installed</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true"></a><span class="op">!</span>pip install wordcloud matplotlib</span></code></pre></div>
+<pre><code>Requirement already satisfied: wordcloud in /usr/local/lib/python3.12/dist-packages (1.9.4)
+Requirement already satisfied: matplotlib in /usr/local/lib/python3.12/dist-packages (3.10.0)
+Requirement already satisfied: numpy&gt;=1.6.1 in /usr/local/lib/python3.12/dist-packages (from wordcloud) (2.0.2)
+Requirement already satisfied: pillow in /usr/local/lib/python3.12/dist-packages (from wordcloud) (11.3.0)
+Requirement already satisfied: contourpy&gt;=1.0.1 in /usr/local/lib/python3.12/dist-packages (from matplotlib) (1.3.3)
+Requirement already satisfied: cycler&gt;=0.10 in /usr/local/lib/python3.12/dist-packages (from matplotlib) (0.12.1)
+Requirement already satisfied: fonttools&gt;=4.22.0 in /usr/local/lib/python3.12/dist-packages (from matplotlib) (4.60.1)
+Requirement already satisfied: kiwisolver&gt;=1.3.1 in /usr/local/lib/python3.12/dist-packages (from matplotlib) (1.4.9)
+Requirement already satisfied: packaging&gt;=20.0 in /usr/local/lib/python3.12/dist-packages (from matplotlib) (25.0)
+Requirement already satisfied: pyparsing&gt;=2.3.1 in /usr/local/lib/python3.12/dist-packages (from matplotlib) (3.2.5)
+Requirement already satisfied: python-dateutil&gt;=2.7 in /usr/local/lib/python3.12/dist-packages (from matplotlib) (2.9.0.post0)
+Requirement already satisfied: six&gt;=1.5 in /usr/local/lib/python3.12/dist-packages (from python-dateutil&gt;=2.7-&gt;matplotlib) (1.17.0)</code></pre>
+<div class="sourceCode" id="cb13"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true"></a><span class="im">from</span> wordcloud <span class="im">import</span> WordCloud</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true"></a><span class="co"># Join all tokens into one string</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true"></a>text_for_cloud <span class="op">=</span> <span class="st">&quot; &quot;</span>.join(word_tokens)</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true"></a></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true"></a><span class="co"># Create the word cloud</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true"></a>wordcloud <span class="op">=</span> WordCloud(</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true"></a>    width<span class="op">=</span><span class="dv">800</span>,</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true"></a>    height<span class="op">=</span><span class="dv">400</span>,</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true"></a>    background_color<span class="op">=</span><span class="st">&#39;white&#39;</span>,</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true"></a>    colormap<span class="op">=</span><span class="st">&#39;viridis&#39;</span>,</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true"></a>    stopwords<span class="op">=</span><span class="va">None</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true"></a>).generate(text_for_cloud)</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true"></a></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true"></a><span class="co"># Display the Word Cloud</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">6</span>))</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true"></a>plt.imshow(wordcloud, interpolation<span class="op">=</span><span class="st">&#39;bilinear&#39;</span>)</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true"></a>plt.axis(<span class="st">&#39;off&#39;</span>)</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true"></a>plt.title(<span class="st">&quot;Word Cloud of Extracted Tokens&quot;</span>, fontsize<span class="op">=</span><span class="dv">16</span>)</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true"></a>plt.show()</span></code></pre></div>
+<figure>
+<img src="https://theonlineconverter.com/uploads/Text_Summarization_3_1762235879_files/Text_Summarization_3_1762235879_9_0.png" alt="" /><figcaption>png</figcaption>
+</figure>
+<h1 id="removal-of-stopwords-punctuations-spaces-and-numbers">Removal of stopwords, punctuations, spaces, and numbers</h1>
+<div class="sourceCode" id="cb14"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true"></a><span class="im">import</span> spacy</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true"></a><span class="co"># Load English model</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true"></a>nlp <span class="op">=</span> spacy.load(<span class="st">&quot;en_core_web_sm&quot;</span>)</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true"></a></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true"></a><span class="co"># Process the cleaned text</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true"></a>doc <span class="op">=</span> nlp(cleaned_text)</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true"></a></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true"></a><span class="co"># Remove stopwords, punctuations, spaces, and numbers</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true"></a>filtered_tokens <span class="op">=</span> [</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true"></a>    token.text.lower()</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true"></a>    <span class="cf">for</span> token <span class="kw">in</span> doc</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true"></a>    <span class="cf">if</span> <span class="kw">not</span> token.is_stop <span class="kw">and</span> <span class="kw">not</span> token.is_punct <span class="kw">and</span> <span class="kw">not</span> token.is_space <span class="kw">and</span> <span class="kw">not</span> token.like_num</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true"></a>]</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true"></a></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">✅ Tokens after Stopword &amp; Number Removal:&quot;</span>)</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true"></a><span class="bu">print</span>(filtered_tokens[:<span class="dv">50</span>])  <span class="co"># Show first 50 tokens</span></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🔹 Total Tokens After Cleaning:&quot;</span>, <span class="bu">len</span>(filtered_tokens))</span></code></pre></div>
+<pre><code>✅ Tokens after Stopword &amp; Number Removal:
+[&#39;august&#39;, &#39;state&#39;, &#39;kerala&#39;, &#39;india&#39;, &#39;faced&#39;, &#39;worst&#39;, &#39;floods&#39;, &#39;nearly&#39;, &#39;century&#39;, &#39;unusually&#39;, &#39;heavy&#39;, &#39;rainfall&#39;, &#39;caused&#39;, &#39;rivers&#39;, &#39;overflow&#39;, &#39;leading&#39;, &#39;landslides&#39;, &#39;severe&#39;, &#39;damage&#39;, &#39;districts&#39;, &#39;people&#39;, &#39;lost&#39;, &#39;lives&#39;, &#39;thousands&#39;, &#39;displaced&#39;, &#39;homes&#39;, &#39;roads&#39;, &#39;bridges&#39;, &#39;destroyed&#39;, &#39;indian&#39;, &#39;army&#39;, &#39;navy&#39;, &#39;national&#39;, &#39;disaster&#39;, &#39;response&#39;, &#39;force&#39;, &#39;ndrf&#39;, &#39;carried&#39;, &#39;massive&#39;, &#39;rescue&#39;, &#39;operations&#39;, &#39;saving&#39;, &#39;countless&#39;, &#39;lives&#39;, &#39;floods&#39;, &#39;united&#39;, &#39;people&#39;, &#39;nation&#39;, &#39;volunteers&#39;, &#39;organizations&#39;]
+
+🔹 Total Tokens After Cleaning: 59</code></pre>
+<h1 id="lemmatization">Lemmatization</h1>
+<div class="sourceCode" id="cb16"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true"></a><span class="im">import</span> spacy</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true"></a></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true"></a><span class="co"># Load English model</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true"></a>nlp <span class="op">=</span> spacy.load(<span class="st">&quot;en_core_web_sm&quot;</span>)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true"></a></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true"></a><span class="co"># Process the cleaned text</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true"></a>doc <span class="op">=</span> nlp(cleaned_text)</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true"></a></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true"></a><span class="co"># Lemmatization (excluding stopwords, punctuation, spaces, and numbers)</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true"></a>lemmatized_tokens <span class="op">=</span> [</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true"></a>    token.lemma_.lower()</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true"></a>    <span class="cf">for</span> token <span class="kw">in</span> doc</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true"></a>    <span class="cf">if</span> <span class="kw">not</span> token.is_stop <span class="kw">and</span> <span class="kw">not</span> token.is_punct <span class="kw">and</span> <span class="kw">not</span> token.is_space <span class="kw">and</span> <span class="kw">not</span> token.like_num</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true"></a>]</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true"></a></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">✅ Lemmatized Tokens:&quot;</span>)</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true"></a><span class="bu">print</span>(lemmatized_tokens[:<span class="dv">50</span>])  <span class="co"># Print first 50 tokens</span></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🔹 Total Tokens After Lemmatization:&quot;</span>, <span class="bu">len</span>(lemmatized_tokens))</span></code></pre></div>
+<pre><code>✅ Lemmatized Tokens:
+[&#39;august&#39;, &#39;state&#39;, &#39;kerala&#39;, &#39;india&#39;, &#39;face&#39;, &#39;bad&#39;, &#39;flood&#39;, &#39;nearly&#39;, &#39;century&#39;, &#39;unusually&#39;, &#39;heavy&#39;, &#39;rainfall&#39;, &#39;cause&#39;, &#39;river&#39;, &#39;overflow&#39;, &#39;lead&#39;, &#39;landslide&#39;, &#39;severe&#39;, &#39;damage&#39;, &#39;district&#39;, &#39;people&#39;, &#39;lose&#39;, &#39;life&#39;, &#39;thousand&#39;, &#39;displace&#39;, &#39;home&#39;, &#39;road&#39;, &#39;bridge&#39;, &#39;destroy&#39;, &#39;indian&#39;, &#39;army&#39;, &#39;navy&#39;, &#39;national&#39;, &#39;disaster&#39;, &#39;response&#39;, &#39;force&#39;, &#39;ndrf&#39;, &#39;carry&#39;, &#39;massive&#39;, &#39;rescue&#39;, &#39;operation&#39;, &#39;save&#39;, &#39;countless&#39;, &#39;life&#39;, &#39;flood&#39;, &#39;unite&#39;, &#39;people&#39;, &#39;nation&#39;, &#39;volunteer&#39;, &#39;organization&#39;]
+
+🔹 Total Tokens After Lemmatization: 59</code></pre>
+<h1 id="vectorization-token-embedding">Vectorization / Token Embedding</h1>
+<div class="sourceCode" id="cb18"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true"></a><span class="co"># ✅ Install the required library (only once)</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true"></a><span class="op">!</span>pip install transformers sentencepiece</span></code></pre></div>
+<pre><code>Requirement already satisfied: transformers in /usr/local/lib/python3.12/dist-packages (4.57.1)
+Requirement already satisfied: sentencepiece in /usr/local/lib/python3.12/dist-packages (0.2.1)
+Requirement already satisfied: filelock in /usr/local/lib/python3.12/dist-packages (from transformers) (3.20.0)
+Requirement already satisfied: huggingface-hub&lt;1.0,&gt;=0.34.0 in /usr/local/lib/python3.12/dist-packages (from transformers) (0.36.0)
+Requirement already satisfied: numpy&gt;=1.17 in /usr/local/lib/python3.12/dist-packages (from transformers) (2.0.2)
+Requirement already satisfied: packaging&gt;=20.0 in /usr/local/lib/python3.12/dist-packages (from transformers) (25.0)
+Requirement already satisfied: pyyaml&gt;=5.1 in /usr/local/lib/python3.12/dist-packages (from transformers) (6.0.3)
+Requirement already satisfied: regex!=2019.12.17 in /usr/local/lib/python3.12/dist-packages (from transformers) (2024.11.6)
+Requirement already satisfied: requests in /usr/local/lib/python3.12/dist-packages (from transformers) (2.32.4)
+Requirement already satisfied: tokenizers&lt;=0.23.0,&gt;=0.22.0 in /usr/local/lib/python3.12/dist-packages (from transformers) (0.22.1)
+Requirement already satisfied: safetensors&gt;=0.4.3 in /usr/local/lib/python3.12/dist-packages (from transformers) (0.6.2)
+Requirement already satisfied: tqdm&gt;=4.27 in /usr/local/lib/python3.12/dist-packages (from transformers) (4.67.1)
+Requirement already satisfied: fsspec&gt;=2023.5.0 in /usr/local/lib/python3.12/dist-packages (from huggingface-hub&lt;1.0,&gt;=0.34.0-&gt;transformers) (2025.3.0)
+Requirement already satisfied: typing-extensions&gt;=3.7.4.3 in /usr/local/lib/python3.12/dist-packages (from huggingface-hub&lt;1.0,&gt;=0.34.0-&gt;transformers) (4.15.0)
+Requirement already satisfied: hf-xet&lt;2.0.0,&gt;=1.1.3 in /usr/local/lib/python3.12/dist-packages (from huggingface-hub&lt;1.0,&gt;=0.34.0-&gt;transformers) (1.2.0)
+Requirement already satisfied: charset_normalizer&lt;4,&gt;=2 in /usr/local/lib/python3.12/dist-packages (from requests-&gt;transformers) (3.4.4)
+Requirement already satisfied: idna&lt;4,&gt;=2.5 in /usr/local/lib/python3.12/dist-packages (from requests-&gt;transformers) (3.11)
+Requirement already satisfied: urllib3&lt;3,&gt;=1.21.1 in /usr/local/lib/python3.12/dist-packages (from requests-&gt;transformers) (2.5.0)
+Requirement already satisfied: certifi&gt;=2017.4.17 in /usr/local/lib/python3.12/dist-packages (from requests-&gt;transformers) (2025.10.5)</code></pre>
+<div class="sourceCode" id="cb20"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true"></a><span class="im">import</span> spacy</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true"></a><span class="im">from</span> transformers <span class="im">import</span> PegasusTokenizer</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true"></a></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true"></a><span class="co"># --- Step 1: Lemmatization ---</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true"></a>nlp <span class="op">=</span> spacy.load(<span class="st">&quot;en_core_web_sm&quot;</span>)</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true"></a></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true"></a>doc <span class="op">=</span> nlp(cleaned_text)</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true"></a>lemmatized_tokens <span class="op">=</span> [</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true"></a>    token.lemma_.lower()</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true"></a>    <span class="cf">for</span> token <span class="kw">in</span> doc</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true"></a>    <span class="cf">if</span> <span class="kw">not</span> token.is_stop <span class="kw">and</span> <span class="kw">not</span> token.is_punct <span class="kw">and</span> <span class="kw">not</span> token.is_space <span class="kw">and</span> <span class="kw">not</span> token.like_num</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true"></a>]</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true"></a></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true"></a><span class="co"># Convert token list → text string</span></span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true"></a>final_cleaned_text <span class="op">=</span> <span class="st">&quot; &quot;</span>.join(lemmatized_tokens)</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true"></a></span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">✅ Lemmatized Text Preview:</span><span class="ch">\n</span><span class="st">&quot;</span>, final_cleaned_text[:<span class="dv">300</span>])</span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🔹 Total Tokens After Lemmatization:&quot;</span>, <span class="bu">len</span>(lemmatized_tokens))</span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true"></a></span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true"></a></span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true"></a><span class="co"># --- Step 2: Vectorization / Token Embedding ---</span></span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true"></a>model_name <span class="op">=</span> <span class="st">&quot;google/pegasus-xsum&quot;</span></span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true"></a>tokenizer <span class="op">=</span> PegasusTokenizer.from_pretrained(model_name)</span>
+<span id="cb20-24"><a href="#cb20-24" aria-hidden="true"></a></span>
+<span id="cb20-25"><a href="#cb20-25" aria-hidden="true"></a>encoded_input <span class="op">=</span> tokenizer(</span>
+<span id="cb20-26"><a href="#cb20-26" aria-hidden="true"></a>    final_cleaned_text,           <span class="co"># 👈 use lemmatized text here</span></span>
+<span id="cb20-27"><a href="#cb20-27" aria-hidden="true"></a>    return_tensors<span class="op">=</span><span class="st">&quot;pt&quot;</span>,</span>
+<span id="cb20-28"><a href="#cb20-28" aria-hidden="true"></a>    padding<span class="op">=</span><span class="st">&#39;longest&#39;</span>,</span>
+<span id="cb20-29"><a href="#cb20-29" aria-hidden="true"></a>    truncation<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb20-30"><a href="#cb20-30" aria-hidden="true"></a>    max_length<span class="op">=</span><span class="dv">512</span></span>
+<span id="cb20-31"><a href="#cb20-31" aria-hidden="true"></a>)</span>
+<span id="cb20-32"><a href="#cb20-32" aria-hidden="true"></a></span>
+<span id="cb20-33"><a href="#cb20-33" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">✅ Tokenization Complete!&quot;</span>)</span>
+<span id="cb20-34"><a href="#cb20-34" aria-hidden="true"></a><span class="bu">print</span>(<span class="ss">f&quot;🔹 Input Text Length (chars): </span><span class="sc">{</span><span class="bu">len</span>(final_cleaned_text)<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb20-35"><a href="#cb20-35" aria-hidden="true"></a><span class="bu">print</span>(<span class="ss">f&quot;🔹 Number of Tokens: </span><span class="sc">{</span><span class="bu">len</span>(encoded_input[<span class="st">&#39;input_ids&#39;</span>][<span class="dv">0</span>])<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb20-36"><a href="#cb20-36" aria-hidden="true"></a></span>
+<span id="cb20-37"><a href="#cb20-37" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🔹 First 20 Token IDs:</span><span class="ch">\n</span><span class="st">&quot;</span>, encoded_input[<span class="st">&#39;input_ids&#39;</span>][<span class="dv">0</span>][:<span class="dv">20</span>])</span>
+<span id="cb20-38"><a href="#cb20-38" aria-hidden="true"></a></span>
+<span id="cb20-39"><a href="#cb20-39" aria-hidden="true"></a>decoded_text <span class="op">=</span> tokenizer.decode(encoded_input[<span class="st">&#39;input_ids&#39;</span>][<span class="dv">0</span>], skip_special_tokens<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb20-40"><a href="#cb20-40" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🔹 Decoded Text Preview:</span><span class="ch">\n</span><span class="st">&quot;</span>, decoded_text[:<span class="dv">300</span>])</span></code></pre></div>
+<pre><code>✅ Lemmatized Text Preview:
+ august state kerala india face bad flood nearly century unusually heavy rainfall cause river overflow lead landslide severe damage district people lose life thousand displace home road bridge destroy indian army navy national disaster response force ndrf carry massive rescue operation save countless
+
+🔹 Total Tokens After Lemmatization: 59
+
+
+/usr/local/lib/python3.12/dist-packages/huggingface_hub/utils/_auth.py:94: UserWarning: 
+The secret `HF_TOKEN` does not exist in your Colab secrets.
+To authenticate with the Hugging Face Hub, create a token in your settings tab (https://huggingface.co/settings/tokens), set it as secret in your Google Colab and restart your session.
+You will be able to reuse this secret in all of your notebooks.
+Please note that authentication is recommended but still optional to access public models or datasets.
+  warnings.warn(
+
+
+
+tokenizer_config.json:   0%|          | 0.00/87.0 [00:00&lt;?, ?B/s]
+
+
+
+spiece.model:   0%|          | 0.00/1.91M [00:00&lt;?, ?B/s]
+
+
+
+special_tokens_map.json:   0%|          | 0.00/65.0 [00:00&lt;?, ?B/s]
+
+
+
+tokenizer.json: 0.00B [00:00, ?B/s]
+
+
+
+config.json: 0.00B [00:00, ?B/s]
+
+
+
+✅ Tokenization Complete!
+🔹 Input Text Length (chars): 434
+🔹 Number of Tokens: 62
+
+🔹 First 20 Token IDs:
+ tensor([49447,   449, 79054, 10706,   749,  1025,  6172,  1517,  1902, 21220,
+         1751, 14197,  1007,  2984, 17198,   756, 48162,  3726,  1303,  2607])
+
+🔹 Decoded Text Preview:
+ august state kerala india face bad flood nearly century unusually heavy rainfall cause river overflow lead landslide severe damage district people lose life thousand displace home road bridge destroy indian army navy national disaster response force ndrf carry massive rescue operation save countless</code></pre>
+<h1 id="load-the-pegasus-summarization-model">Load the PEGASUS summarization model</h1>
+<div class="sourceCode" id="cb22"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true"></a><span class="co"># run this once</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true"></a><span class="op">!</span>pip install transformers sentencepiece <span class="op">-</span>q</span></code></pre></div>
+<div class="sourceCode" id="cb23"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true"></a><span class="im">from</span> transformers <span class="im">import</span> PegasusForConditionalGeneration</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true"></a><span class="im">import</span> torch</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true"></a></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true"></a>model <span class="op">=</span> PegasusForConditionalGeneration.from_pretrained(<span class="st">&quot;google/pegasus-xsum&quot;</span>)</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true"></a>model.<span class="bu">eval</span>()</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true"></a>device <span class="op">=</span> <span class="st">&quot;cuda&quot;</span> <span class="cf">if</span> torch.cuda.is_available() <span class="cf">else</span> <span class="st">&quot;cpu&quot;</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true"></a>model.to(device)</span></code></pre></div>
+<pre><code>pytorch_model.bin:   0%|          | 0.00/2.28G [00:00&lt;?, ?B/s]
+
+
+
+model.safetensors:   0%|          | 0.00/2.28G [00:00&lt;?, ?B/s]
+
+
+Some weights of PegasusForConditionalGeneration were not initialized from the model checkpoint at google/pegasus-xsum and are newly initialized: [&#39;model.decoder.embed_positions.weight&#39;, &#39;model.encoder.embed_positions.weight&#39;]
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+
+
+
+generation_config.json:   0%|          | 0.00/259 [00:00&lt;?, ?B/s]
+
+
+
+
+
+PegasusForConditionalGeneration(
+  (model): PegasusModel(
+    (shared): Embedding(96103, 1024, padding_idx=0)
+    (encoder): PegasusEncoder(
+      (embed_tokens): Embedding(96103, 1024, padding_idx=0)
+      (embed_positions): PegasusSinusoidalPositionalEmbedding(512, 1024)
+      (layers): ModuleList(
+        (0-15): 16 x PegasusEncoderLayer(
+          (self_attn): PegasusAttention(
+            (k_proj): Linear(in_features=1024, out_features=1024, bias=True)
+            (v_proj): Linear(in_features=1024, out_features=1024, bias=True)
+            (q_proj): Linear(in_features=1024, out_features=1024, bias=True)
+            (out_proj): Linear(in_features=1024, out_features=1024, bias=True)
+          )
+          (self_attn_layer_norm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+          (activation_fn): ReLU()
+          (fc1): Linear(in_features=1024, out_features=4096, bias=True)
+          (fc2): Linear(in_features=4096, out_features=1024, bias=True)
+          (final_layer_norm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+        )
+      )
+      (layer_norm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+    )
+    (decoder): PegasusDecoder(
+      (embed_tokens): Embedding(96103, 1024, padding_idx=0)
+      (embed_positions): PegasusSinusoidalPositionalEmbedding(512, 1024)
+      (layers): ModuleList(
+        (0-15): 16 x PegasusDecoderLayer(
+          (self_attn): PegasusAttention(
+            (k_proj): Linear(in_features=1024, out_features=1024, bias=True)
+            (v_proj): Linear(in_features=1024, out_features=1024, bias=True)
+            (q_proj): Linear(in_features=1024, out_features=1024, bias=True)
+            (out_proj): Linear(in_features=1024, out_features=1024, bias=True)
+          )
+          (activation_fn): ReLU()
+          (self_attn_layer_norm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+          (encoder_attn): PegasusAttention(
+            (k_proj): Linear(in_features=1024, out_features=1024, bias=True)
+            (v_proj): Linear(in_features=1024, out_features=1024, bias=True)
+            (q_proj): Linear(in_features=1024, out_features=1024, bias=True)
+            (out_proj): Linear(in_features=1024, out_features=1024, bias=True)
+          )
+          (encoder_attn_layer_norm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+          (fc1): Linear(in_features=1024, out_features=4096, bias=True)
+          (fc2): Linear(in_features=4096, out_features=1024, bias=True)
+          (final_layer_norm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+        )
+      )
+      (layer_norm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+    )
+  )
+  (lm_head): Linear(in_features=1024, out_features=96103, bias=False)
+)</code></pre>
+<h1 id="abstractive-text-summarization-using-pegasus-model">“Abstractive Text Summarization using PEGASUS Model</h1>
+<div class="sourceCode" id="cb25"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true"></a><span class="co"># Use your lemmatized text</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true"></a>input_text <span class="op">=</span> final_cleaned_text</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true"></a></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true"></a><span class="co"># Tokenize</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true"></a>inputs <span class="op">=</span> tokenizer(</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true"></a>    input_text,</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true"></a>    return_tensors<span class="op">=</span><span class="st">&quot;pt&quot;</span>,</span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true"></a>    padding<span class="op">=</span><span class="st">&quot;longest&quot;</span>,</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true"></a>    truncation<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true"></a>    max_length<span class="op">=</span><span class="dv">512</span></span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true"></a>).to(device)</span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true"></a></span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true"></a><span class="co"># Generate summary</span></span>
+<span id="cb25-14"><a href="#cb25-14" aria-hidden="true"></a>summary_ids <span class="op">=</span> model.generate(</span>
+<span id="cb25-15"><a href="#cb25-15" aria-hidden="true"></a>    inputs[<span class="st">&quot;input_ids&quot;</span>],</span>
+<span id="cb25-16"><a href="#cb25-16" aria-hidden="true"></a>    attention_mask<span class="op">=</span>inputs[<span class="st">&quot;attention_mask&quot;</span>],</span>
+<span id="cb25-17"><a href="#cb25-17" aria-hidden="true"></a>    max_length<span class="op">=</span><span class="dv">80</span>,</span>
+<span id="cb25-18"><a href="#cb25-18" aria-hidden="true"></a>    min_length<span class="op">=</span><span class="dv">20</span>,</span>
+<span id="cb25-19"><a href="#cb25-19" aria-hidden="true"></a>    num_beams<span class="op">=</span><span class="dv">4</span>,</span>
+<span id="cb25-20"><a href="#cb25-20" aria-hidden="true"></a>    length_penalty<span class="op">=</span><span class="fl">2.0</span>,</span>
+<span id="cb25-21"><a href="#cb25-21" aria-hidden="true"></a>    early_stopping<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb25-22"><a href="#cb25-22" aria-hidden="true"></a>    no_repeat_ngram_size<span class="op">=</span><span class="dv">3</span></span>
+<span id="cb25-23"><a href="#cb25-23" aria-hidden="true"></a>)</span>
+<span id="cb25-24"><a href="#cb25-24" aria-hidden="true"></a></span>
+<span id="cb25-25"><a href="#cb25-25" aria-hidden="true"></a><span class="co"># Decode and display</span></span>
+<span id="cb25-26"><a href="#cb25-26" aria-hidden="true"></a>summary <span class="op">=</span> tokenizer.decode(summary_ids[<span class="dv">0</span>], skip_special_tokens<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb25-27"><a href="#cb25-27" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🧾 Summary:</span><span class="ch">\n</span><span class="st">&quot;</span>, summary)</span></code></pre></div>
+<pre><code>🧾 Summary:
+ People in flood-hit areas of the US state of arkansas are being urged to donate to the American Red Cross to help those affected by flooding.</code></pre>
+<div class="sourceCode" id="cb27"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true"></a><span class="co"># --- Run this once ---</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true"></a><span class="op">!</span>pip install bert<span class="op">-</span>extractive<span class="op">-</span>summarizer spacy transformers <span class="op">-</span>q</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true"></a><span class="op">!</span>python <span class="op">-</span>m spacy download en_core_web_sm</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true"></a></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true"></a><span class="co"># --- Import and run ---</span></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true"></a><span class="im">from</span> summarizer <span class="im">import</span> Summarizer</span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true"></a></span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true"></a><span class="co"># Load pretrained BERT model</span></span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true"></a>bert_model <span class="op">=</span> Summarizer()</span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true"></a></span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true"></a><span class="co"># Use your cleaned/preprocessed text variable</span></span>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true"></a>bert_summary <span class="op">=</span> bert_model(final_cleaned_text, ratio<span class="op">=</span><span class="fl">0.4</span>)  <span class="co"># 40% of original text length</span></span>
+<span id="cb27-13"><a href="#cb27-13" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🧠 BERT Extractive Summary:</span><span class="ch">\n</span><span class="st">&quot;</span>, bert_summary)</span></code></pre></div>
+<pre><code>Collecting en-core-web-sm==3.8.0
+  Downloading https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl (12.8 MB)
+[2K     [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m12.8/12.8 MB[0m [31m72.8 MB/s[0m eta [36m0:00:00[0m
+[?25h[38;5;2m✔ Download and installation successful[0m
+You can now load the package via spacy.load(&#39;en_core_web_sm&#39;)
+[38;5;3m⚠ Restart to reload dependencies[0m
+If you are in a Jupyter or Colab notebook, you may need to restart Python in
+order to load all the package&#39;s dependencies. You can do this by selecting the
+&#39;Restart kernel&#39; or &#39;Restart runtime&#39; option.
+
+
+
+config.json:   0%|          | 0.00/571 [00:00&lt;?, ?B/s]
+
+
+
+model.safetensors:   0%|          | 0.00/1.34G [00:00&lt;?, ?B/s]
+
+
+
+tokenizer_config.json:   0%|          | 0.00/48.0 [00:00&lt;?, ?B/s]
+
+
+
+vocab.txt:   0%|          | 0.00/232k [00:00&lt;?, ?B/s]
+
+
+
+tokenizer.json:   0%|          | 0.00/466k [00:00&lt;?, ?B/s]
+
+
+
+🧠 BERT Extractive Summary:
+ august state kerala india face bad flood nearly century unusually heavy rainfall cause river overflow lead landslide severe damage district people lose life thousand displace home road bridge destroy indian army navy national disaster response force ndrf carry massive rescue operation save countless life flood unite people nation volunteer organization come forward donation relief material rehabilitation support affected community</code></pre>
+<div class="sourceCode" id="cb29"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true"></a><span class="co"># --- Run this once ---</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true"></a><span class="op">!</span>pip install transformers sentencepiece <span class="op">-</span>q</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true"></a></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true"></a><span class="im">from</span> transformers <span class="im">import</span> AutoTokenizer, AutoModelForSeq2SeqLM</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true"></a><span class="im">import</span> torch</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true"></a></span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true"></a><span class="co"># Load FLAN-T5 model and tokenizer</span></span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true"></a>model_name <span class="op">=</span> <span class="st">&quot;google/flan-t5-large&quot;</span>   <span class="co"># you can try &#39;base&#39;, &#39;xl&#39;, or &#39;xxl&#39; too</span></span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true"></a>tokenizer <span class="op">=</span> AutoTokenizer.from_pretrained(model_name)</span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true"></a>model <span class="op">=</span> AutoModelForSeq2SeqLM.from_pretrained(model_name)</span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true"></a></span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true"></a>device <span class="op">=</span> <span class="st">&quot;cuda&quot;</span> <span class="cf">if</span> torch.cuda.is_available() <span class="cf">else</span> <span class="st">&quot;cpu&quot;</span></span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true"></a>model.to(device)</span>
+<span id="cb29-14"><a href="#cb29-14" aria-hidden="true"></a>model.<span class="bu">eval</span>()</span>
+<span id="cb29-15"><a href="#cb29-15" aria-hidden="true"></a></span>
+<span id="cb29-16"><a href="#cb29-16" aria-hidden="true"></a><span class="co"># --- Use your cleaned/preprocessed text ---</span></span>
+<span id="cb29-17"><a href="#cb29-17" aria-hidden="true"></a>input_text <span class="op">=</span> final_cleaned_text</span>
+<span id="cb29-18"><a href="#cb29-18" aria-hidden="true"></a></span>
+<span id="cb29-19"><a href="#cb29-19" aria-hidden="true"></a><span class="co"># Prepare input</span></span>
+<span id="cb29-20"><a href="#cb29-20" aria-hidden="true"></a>inputs <span class="op">=</span> tokenizer(</span>
+<span id="cb29-21"><a href="#cb29-21" aria-hidden="true"></a>    <span class="st">&quot;summarize: &quot;</span> <span class="op">+</span> input_text,</span>
+<span id="cb29-22"><a href="#cb29-22" aria-hidden="true"></a>    return_tensors<span class="op">=</span><span class="st">&quot;pt&quot;</span>,</span>
+<span id="cb29-23"><a href="#cb29-23" aria-hidden="true"></a>    truncation<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb29-24"><a href="#cb29-24" aria-hidden="true"></a>    padding<span class="op">=</span><span class="st">&quot;longest&quot;</span>,</span>
+<span id="cb29-25"><a href="#cb29-25" aria-hidden="true"></a>    max_length<span class="op">=</span><span class="dv">1024</span></span>
+<span id="cb29-26"><a href="#cb29-26" aria-hidden="true"></a>).to(device)</span>
+<span id="cb29-27"><a href="#cb29-27" aria-hidden="true"></a></span>
+<span id="cb29-28"><a href="#cb29-28" aria-hidden="true"></a><span class="co"># Generate summary</span></span>
+<span id="cb29-29"><a href="#cb29-29" aria-hidden="true"></a>summary_ids <span class="op">=</span> model.generate(</span>
+<span id="cb29-30"><a href="#cb29-30" aria-hidden="true"></a>    <span class="op">**</span>inputs,</span>
+<span id="cb29-31"><a href="#cb29-31" aria-hidden="true"></a>    max_length<span class="op">=</span><span class="dv">200</span>,      <span class="co"># adjust summary length</span></span>
+<span id="cb29-32"><a href="#cb29-32" aria-hidden="true"></a>    min_length<span class="op">=</span><span class="dv">50</span>,</span>
+<span id="cb29-33"><a href="#cb29-33" aria-hidden="true"></a>    num_beams<span class="op">=</span><span class="dv">4</span>,</span>
+<span id="cb29-34"><a href="#cb29-34" aria-hidden="true"></a>    temperature<span class="op">=</span><span class="fl">0.7</span>,</span>
+<span id="cb29-35"><a href="#cb29-35" aria-hidden="true"></a>    no_repeat_ngram_size<span class="op">=</span><span class="dv">3</span>,</span>
+<span id="cb29-36"><a href="#cb29-36" aria-hidden="true"></a>    early_stopping<span class="op">=</span><span class="va">True</span></span>
+<span id="cb29-37"><a href="#cb29-37" aria-hidden="true"></a>)</span>
+<span id="cb29-38"><a href="#cb29-38" aria-hidden="true"></a></span>
+<span id="cb29-39"><a href="#cb29-39" aria-hidden="true"></a><span class="co"># Decode and print summary</span></span>
+<span id="cb29-40"><a href="#cb29-40" aria-hidden="true"></a>summary <span class="op">=</span> tokenizer.decode(summary_ids[<span class="dv">0</span>], skip_special_tokens<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb29-41"><a href="#cb29-41" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🧾 FLAN-T5 Abstractive Summary:</span><span class="ch">\n</span><span class="st">&quot;</span>, summary)</span></code></pre></div>
+<pre><code>tokenizer_config.json: 0.00B [00:00, ?B/s]
+
+
+
+spiece.model:   0%|          | 0.00/792k [00:00&lt;?, ?B/s]
+
+
+
+tokenizer.json: 0.00B [00:00, ?B/s]
+
+
+
+special_tokens_map.json: 0.00B [00:00, ?B/s]
+
+
+
+config.json:   0%|          | 0.00/662 [00:00&lt;?, ?B/s]
+
+
+
+model.safetensors:   0%|          | 0.00/3.13G [00:00&lt;?, ?B/s]
+
+
+
+generation_config.json:   0%|          | 0.00/147 [00:00&lt;?, ?B/s]
+
+
+The following generation flags are not valid and may be ignored: [&#39;temperature&#39;]. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+
+
+
+🧾 FLAN-T5 Abstractive Summary:
+ kerala state india face bad flood nearly century unusually heavy rainfall cause river overflow lead landslide severe damage district people lose life thousand displace home road bridge destroy indian army navy national disaster response force ndrf carry massive rescue operation save countless life</code></pre>
+<div class="sourceCode" id="cb31"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true"></a><span class="co"># Install required libraries (run this cell once)</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true"></a><span class="op">!</span>pip install <span class="op">-</span>q transformers sentencepiece datasets rouge_score sacrebleu bert<span class="op">-</span>score accelerate</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true"></a><span class="op">!</span>python <span class="op">-</span>m pip install <span class="op">-</span>q git<span class="op">+</span>https:<span class="op">//</span>github.com<span class="op">/</span>UKPLab<span class="op">/</span>sentence<span class="op">-</span>transformers<span class="op">@</span>master</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true"></a></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&#39;Packages installation cell executed. If some installs completed now, restart the runtime (Runtime -&gt; Restart runtime) and run cells again.&#39;</span>)</span></code></pre></div>
+<pre><code>  Preparing metadata (setup.py) ... [?25l[?25hdone
+[2K     [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m51.8/51.8 kB[0m [31m2.8 MB/s[0m eta [36m0:00:00[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m104.1/104.1 kB[0m [31m4.4 MB/s[0m eta [36m0:00:00[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m61.1/61.1 kB[0m [31m3.2 MB/s[0m eta [36m0:00:00[0m
+[?25h  Building wheel for rouge_score (setup.py) ... [?25l[?25hdone
+  Installing build dependencies ... [?25l[?25hdone
+  Getting requirements to build wheel ... [?25l[?25hdone
+  Preparing metadata (pyproject.toml) ... [?25l[?25hdone
+  Building wheel for sentence-transformers (pyproject.toml) ... [?25l[?25hdone
+Packages installation cell executed. If some installs completed now, restart the runtime (Runtime -&gt; Restart runtime) and run cells again.</code></pre>
+<div class="sourceCode" id="cb33"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true"></a><span class="op">!</span>pip install evaluate</span></code></pre></div>
+<pre><code>Collecting evaluate
+  Downloading evaluate-0.4.6-py3-none-any.whl.metadata (9.5 kB)
+Requirement already satisfied: datasets&gt;=2.0.0 in /usr/local/lib/python3.12/dist-packages (from evaluate) (4.0.0)
+Requirement already satisfied: numpy&gt;=1.17 in /usr/local/lib/python3.12/dist-packages (from evaluate) (2.0.2)
+Requirement already satisfied: dill in /usr/local/lib/python3.12/dist-packages (from evaluate) (0.3.8)
+Requirement already satisfied: pandas in /usr/local/lib/python3.12/dist-packages (from evaluate) (2.2.2)
+Requirement already satisfied: requests&gt;=2.19.0 in /usr/local/lib/python3.12/dist-packages (from evaluate) (2.32.4)
+Requirement already satisfied: tqdm&gt;=4.62.1 in /usr/local/lib/python3.12/dist-packages (from evaluate) (4.67.1)
+Requirement already satisfied: xxhash in /usr/local/lib/python3.12/dist-packages (from evaluate) (3.6.0)
+Requirement already satisfied: multiprocess in /usr/local/lib/python3.12/dist-packages (from evaluate) (0.70.16)
+Requirement already satisfied: fsspec&gt;=2021.05.0 in /usr/local/lib/python3.12/dist-packages (from fsspec[http]&gt;=2021.05.0-&gt;evaluate) (2025.3.0)
+Requirement already satisfied: huggingface-hub&gt;=0.7.0 in /usr/local/lib/python3.12/dist-packages (from evaluate) (0.36.0)
+Requirement already satisfied: packaging in /usr/local/lib/python3.12/dist-packages (from evaluate) (25.0)
+Requirement already satisfied: filelock in /usr/local/lib/python3.12/dist-packages (from datasets&gt;=2.0.0-&gt;evaluate) (3.20.0)
+Requirement already satisfied: pyarrow&gt;=15.0.0 in /usr/local/lib/python3.12/dist-packages (from datasets&gt;=2.0.0-&gt;evaluate) (18.1.0)
+Requirement already satisfied: pyyaml&gt;=5.1 in /usr/local/lib/python3.12/dist-packages (from datasets&gt;=2.0.0-&gt;evaluate) (6.0.3)
+Requirement already satisfied: aiohttp!=4.0.0a0,!=4.0.0a1 in /usr/local/lib/python3.12/dist-packages (from fsspec[http]&gt;=2021.05.0-&gt;evaluate) (3.13.1)
+Requirement already satisfied: typing-extensions&gt;=3.7.4.3 in /usr/local/lib/python3.12/dist-packages (from huggingface-hub&gt;=0.7.0-&gt;evaluate) (4.15.0)
+Requirement already satisfied: hf-xet&lt;2.0.0,&gt;=1.1.3 in /usr/local/lib/python3.12/dist-packages (from huggingface-hub&gt;=0.7.0-&gt;evaluate) (1.2.0)
+Requirement already satisfied: charset_normalizer&lt;4,&gt;=2 in /usr/local/lib/python3.12/dist-packages (from requests&gt;=2.19.0-&gt;evaluate) (3.4.4)
+Requirement already satisfied: idna&lt;4,&gt;=2.5 in /usr/local/lib/python3.12/dist-packages (from requests&gt;=2.19.0-&gt;evaluate) (3.11)
+Requirement already satisfied: urllib3&lt;3,&gt;=1.21.1 in /usr/local/lib/python3.12/dist-packages (from requests&gt;=2.19.0-&gt;evaluate) (2.5.0)
+Requirement already satisfied: certifi&gt;=2017.4.17 in /usr/local/lib/python3.12/dist-packages (from requests&gt;=2.19.0-&gt;evaluate) (2025.10.5)
+Requirement already satisfied: python-dateutil&gt;=2.8.2 in /usr/local/lib/python3.12/dist-packages (from pandas-&gt;evaluate) (2.9.0.post0)
+Requirement already satisfied: pytz&gt;=2020.1 in /usr/local/lib/python3.12/dist-packages (from pandas-&gt;evaluate) (2025.2)
+Requirement already satisfied: tzdata&gt;=2022.7 in /usr/local/lib/python3.12/dist-packages (from pandas-&gt;evaluate) (2025.2)
+Requirement already satisfied: aiohappyeyeballs&gt;=2.5.0 in /usr/local/lib/python3.12/dist-packages (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;fsspec[http]&gt;=2021.05.0-&gt;evaluate) (2.6.1)
+Requirement already satisfied: aiosignal&gt;=1.4.0 in /usr/local/lib/python3.12/dist-packages (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;fsspec[http]&gt;=2021.05.0-&gt;evaluate) (1.4.0)
+Requirement already satisfied: attrs&gt;=17.3.0 in /usr/local/lib/python3.12/dist-packages (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;fsspec[http]&gt;=2021.05.0-&gt;evaluate) (25.4.0)
+Requirement already satisfied: frozenlist&gt;=1.1.1 in /usr/local/lib/python3.12/dist-packages (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;fsspec[http]&gt;=2021.05.0-&gt;evaluate) (1.8.0)
+Requirement already satisfied: multidict&lt;7.0,&gt;=4.5 in /usr/local/lib/python3.12/dist-packages (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;fsspec[http]&gt;=2021.05.0-&gt;evaluate) (6.7.0)
+Requirement already satisfied: propcache&gt;=0.2.0 in /usr/local/lib/python3.12/dist-packages (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;fsspec[http]&gt;=2021.05.0-&gt;evaluate) (0.4.1)
+Requirement already satisfied: yarl&lt;2.0,&gt;=1.17.0 in /usr/local/lib/python3.12/dist-packages (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;fsspec[http]&gt;=2021.05.0-&gt;evaluate) (1.22.0)
+Requirement already satisfied: six&gt;=1.5 in /usr/local/lib/python3.12/dist-packages (from python-dateutil&gt;=2.8.2-&gt;pandas-&gt;evaluate) (1.17.0)
+Downloading evaluate-0.4.6-py3-none-any.whl (84 kB)
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m84.1/84.1 kB[0m [31m5.4 MB/s[0m eta [36m0:00:00[0m
+[?25hInstalling collected packages: evaluate
+Successfully installed evaluate-0.4.6</code></pre>
+<div class="sourceCode" id="cb35"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true"></a><span class="co"># Imports and utility functions</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true"></a><span class="im">from</span> transformers <span class="im">import</span> AutoTokenizer, AutoModelForSeq2SeqLM</span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true"></a><span class="im">import</span> torch</span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true"></a><span class="im">import</span> re</span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true"></a><span class="im">import</span> evaluate  <span class="co"># ✅ new import</span></span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true"></a><span class="im">import</span> sacrebleu</span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true"></a></span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true"></a>device <span class="op">=</span> <span class="st">&#39;cuda&#39;</span> <span class="cf">if</span> torch.cuda.is_available() <span class="cf">else</span> <span class="st">&#39;cpu&#39;</span></span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&#39;Device:&#39;</span>, device)</span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true"></a></span>
+<span id="cb35-11"><a href="#cb35-11" aria-hidden="true"></a><span class="kw">def</span> clean_text(text):</span>
+<span id="cb35-12"><a href="#cb35-12" aria-hidden="true"></a>    <span class="co"># basic cleaning: remove extra spaces, fix quotes</span></span>
+<span id="cb35-13"><a href="#cb35-13" aria-hidden="true"></a>    text <span class="op">=</span> re.sub(<span class="vs">r&quot;\s+&quot;</span>, <span class="st">&#39; &#39;</span>, text).strip()</span>
+<span id="cb35-14"><a href="#cb35-14" aria-hidden="true"></a>    <span class="cf">return</span> text</span>
+<span id="cb35-15"><a href="#cb35-15" aria-hidden="true"></a></span>
+<span id="cb35-16"><a href="#cb35-16" aria-hidden="true"></a><span class="kw">def</span> postprocess_summary(s):</span>
+<span id="cb35-17"><a href="#cb35-17" aria-hidden="true"></a>    s <span class="op">=</span> s.strip()</span>
+<span id="cb35-18"><a href="#cb35-18" aria-hidden="true"></a>    <span class="co"># ensure proper spacing</span></span>
+<span id="cb35-19"><a href="#cb35-19" aria-hidden="true"></a>    s <span class="op">=</span> re.sub(<span class="vs">r&#39;\s+&#39;</span>,<span class="st">&#39; &#39;</span>, s)</span>
+<span id="cb35-20"><a href="#cb35-20" aria-hidden="true"></a>    <span class="cf">return</span> s</span>
+<span id="cb35-21"><a href="#cb35-21" aria-hidden="true"></a></span>
+<span id="cb35-22"><a href="#cb35-22" aria-hidden="true"></a><span class="co"># ✅ Load metrics properly now</span></span>
+<span id="cb35-23"><a href="#cb35-23" aria-hidden="true"></a>rouge <span class="op">=</span> evaluate.load(<span class="st">&quot;rouge&quot;</span>)</span>
+<span id="cb35-24"><a href="#cb35-24" aria-hidden="true"></a>bleu <span class="op">=</span> evaluate.load(<span class="st">&quot;bleu&quot;</span>)</span></code></pre></div>
+<pre><code>Device: cuda
+
+
+
+Downloading builder script: 0.00B [00:00, ?B/s]
+
+
+
+Downloading builder script: 0.00B [00:00, ?B/s]
+
+
+
+Downloading extra modules:   0%|          | 0.00/1.55k [00:00&lt;?, ?B/s]
+
+
+
+Downloading extra modules: 0.00B [00:00, ?B/s]</code></pre>
+<div class="sourceCode" id="cb37"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true"></a><span class="co"># Change model names here if needed</span></span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true"></a>flan_model_name <span class="op">=</span> <span class="st">&#39;google/flan-t5-large&#39;</span></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true"></a>pegasus_model_name <span class="op">=</span> <span class="st">&#39;google/pegasus-xsum&#39;</span></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true"></a></span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&#39;Loading tokenizers and models (this may take a while) ...&#39;</span>)</span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true"></a><span class="cf">try</span>:</span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true"></a>    flan_tokenizer <span class="op">=</span> AutoTokenizer.from_pretrained(flan_model_name)</span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true"></a>    flan_model <span class="op">=</span> AutoModelForSeq2SeqLM.from_pretrained(flan_model_name).to(device)</span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true"></a><span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&#39;Error loading FLAN-T5-large. Consider switching to flan-t5-base. Error:&#39;</span>, e)</span>
+<span id="cb37-11"><a href="#cb37-11" aria-hidden="true"></a>    <span class="cf">raise</span></span>
+<span id="cb37-12"><a href="#cb37-12" aria-hidden="true"></a></span>
+<span id="cb37-13"><a href="#cb37-13" aria-hidden="true"></a><span class="cf">try</span>:</span>
+<span id="cb37-14"><a href="#cb37-14" aria-hidden="true"></a>    pegasus_tokenizer <span class="op">=</span> AutoTokenizer.from_pretrained(pegasus_model_name)</span>
+<span id="cb37-15"><a href="#cb37-15" aria-hidden="true"></a>    pegasus_model <span class="op">=</span> AutoModelForSeq2SeqLM.from_pretrained(pegasus_model_name).to(device)</span>
+<span id="cb37-16"><a href="#cb37-16" aria-hidden="true"></a><span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb37-17"><a href="#cb37-17" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&#39;Error loading PEGASUS. Error:&#39;</span>, e)</span>
+<span id="cb37-18"><a href="#cb37-18" aria-hidden="true"></a>    <span class="cf">raise</span></span>
+<span id="cb37-19"><a href="#cb37-19" aria-hidden="true"></a></span>
+<span id="cb37-20"><a href="#cb37-20" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&#39;Models loaded.&#39;</span>)</span></code></pre></div>
+<pre><code>Loading tokenizers and models (this may take a while) ...
+
+
+Some weights of PegasusForConditionalGeneration were not initialized from the model checkpoint at google/pegasus-xsum and are newly initialized: [&#39;model.decoder.embed_positions.weight&#39;, &#39;model.encoder.embed_positions.weight&#39;]
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+
+
+Models loaded.</code></pre>
+<div class="sourceCode" id="cb39"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true"></a><span class="co"># ✅ Run this after input extraction section</span></span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true"></a><span class="co"># (Make sure flan_model, flan_tokenizer, pegasus_model, pegasus_tokenizer are already loaded)</span></span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true"></a></span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true"></a><span class="co"># --- Clean extracted text ---</span></span>
+<span id="cb39-5"><a href="#cb39-5" aria-hidden="true"></a>input_text <span class="op">=</span> extracted_text.strip()</span>
+<span id="cb39-6"><a href="#cb39-6" aria-hidden="true"></a></span>
+<span id="cb39-7"><a href="#cb39-7" aria-hidden="true"></a><span class="cf">if</span> <span class="kw">not</span> input_text <span class="kw">or</span> input_text <span class="op">==</span> <span class="st">&quot;Invalid choice.&quot;</span>:</span>
+<span id="cb39-8"><a href="#cb39-8" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;⚠️ No valid text found for summarization. Please try again.&quot;</span>)</span>
+<span id="cb39-9"><a href="#cb39-9" aria-hidden="true"></a><span class="cf">else</span>:</span>
+<span id="cb39-10"><a href="#cb39-10" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🔍 Running summarization on extracted text...</span><span class="ch">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb39-11"><a href="#cb39-11" aria-hidden="true"></a></span>
+<span id="cb39-12"><a href="#cb39-12" aria-hidden="true"></a>    <span class="co"># --- FLAN-T5 Summarization ---</span></span>
+<span id="cb39-13"><a href="#cb39-13" aria-hidden="true"></a>    flan_inputs <span class="op">=</span> flan_tokenizer(</span>
+<span id="cb39-14"><a href="#cb39-14" aria-hidden="true"></a>        <span class="st">&quot;summarize: &quot;</span> <span class="op">+</span> input_text,</span>
+<span id="cb39-15"><a href="#cb39-15" aria-hidden="true"></a>        return_tensors<span class="op">=</span><span class="st">&quot;pt&quot;</span>,</span>
+<span id="cb39-16"><a href="#cb39-16" aria-hidden="true"></a>        max_length<span class="op">=</span><span class="dv">1024</span>,</span>
+<span id="cb39-17"><a href="#cb39-17" aria-hidden="true"></a>        truncation<span class="op">=</span><span class="va">True</span></span>
+<span id="cb39-18"><a href="#cb39-18" aria-hidden="true"></a>    ).to(device)</span>
+<span id="cb39-19"><a href="#cb39-19" aria-hidden="true"></a></span>
+<span id="cb39-20"><a href="#cb39-20" aria-hidden="true"></a>    flan_summary_ids <span class="op">=</span> flan_model.generate(</span>
+<span id="cb39-21"><a href="#cb39-21" aria-hidden="true"></a>        <span class="op">**</span>flan_inputs,</span>
+<span id="cb39-22"><a href="#cb39-22" aria-hidden="true"></a>        max_length<span class="op">=</span><span class="dv">150</span>,</span>
+<span id="cb39-23"><a href="#cb39-23" aria-hidden="true"></a>        min_length<span class="op">=</span><span class="dv">50</span>,</span>
+<span id="cb39-24"><a href="#cb39-24" aria-hidden="true"></a>        length_penalty<span class="op">=</span><span class="fl">2.0</span>,</span>
+<span id="cb39-25"><a href="#cb39-25" aria-hidden="true"></a>        num_beams<span class="op">=</span><span class="dv">4</span>,</span>
+<span id="cb39-26"><a href="#cb39-26" aria-hidden="true"></a>        early_stopping<span class="op">=</span><span class="va">True</span></span>
+<span id="cb39-27"><a href="#cb39-27" aria-hidden="true"></a>    )</span>
+<span id="cb39-28"><a href="#cb39-28" aria-hidden="true"></a></span>
+<span id="cb39-29"><a href="#cb39-29" aria-hidden="true"></a>    flan_summary <span class="op">=</span> flan_tokenizer.decode(flan_summary_ids[<span class="dv">0</span>], skip_special_tokens<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb39-30"><a href="#cb39-30" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;🧠 FLAN-T5 Summary:</span><span class="ch">\n</span><span class="st">&quot;</span>, flan_summary)</span>
+<span id="cb39-31"><a href="#cb39-31" aria-hidden="true"></a></span>
+<span id="cb39-32"><a href="#cb39-32" aria-hidden="true"></a>    <span class="co"># --- PEGASUS Summarization ---</span></span>
+<span id="cb39-33"><a href="#cb39-33" aria-hidden="true"></a>    pegasus_inputs <span class="op">=</span> pegasus_tokenizer(</span>
+<span id="cb39-34"><a href="#cb39-34" aria-hidden="true"></a>        input_text,</span>
+<span id="cb39-35"><a href="#cb39-35" aria-hidden="true"></a>        return_tensors<span class="op">=</span><span class="st">&quot;pt&quot;</span>,</span>
+<span id="cb39-36"><a href="#cb39-36" aria-hidden="true"></a>        max_length<span class="op">=</span><span class="dv">1024</span>,</span>
+<span id="cb39-37"><a href="#cb39-37" aria-hidden="true"></a>        truncation<span class="op">=</span><span class="va">True</span></span>
+<span id="cb39-38"><a href="#cb39-38" aria-hidden="true"></a>    ).to(device)</span>
+<span id="cb39-39"><a href="#cb39-39" aria-hidden="true"></a></span>
+<span id="cb39-40"><a href="#cb39-40" aria-hidden="true"></a>    pegasus_summary_ids <span class="op">=</span> pegasus_model.generate(</span>
+<span id="cb39-41"><a href="#cb39-41" aria-hidden="true"></a>        <span class="op">**</span>pegasus_inputs,</span>
+<span id="cb39-42"><a href="#cb39-42" aria-hidden="true"></a>        max_length<span class="op">=</span><span class="dv">150</span>,</span>
+<span id="cb39-43"><a href="#cb39-43" aria-hidden="true"></a>        min_length<span class="op">=</span><span class="dv">50</span>,</span>
+<span id="cb39-44"><a href="#cb39-44" aria-hidden="true"></a>        num_beams<span class="op">=</span><span class="dv">5</span>,</span>
+<span id="cb39-45"><a href="#cb39-45" aria-hidden="true"></a>        length_penalty<span class="op">=</span><span class="fl">1.5</span>,</span>
+<span id="cb39-46"><a href="#cb39-46" aria-hidden="true"></a>        early_stopping<span class="op">=</span><span class="va">True</span></span>
+<span id="cb39-47"><a href="#cb39-47" aria-hidden="true"></a>    )</span>
+<span id="cb39-48"><a href="#cb39-48" aria-hidden="true"></a></span>
+<span id="cb39-49"><a href="#cb39-49" aria-hidden="true"></a>    pegasus_summary <span class="op">=</span> pegasus_tokenizer.decode(pegasus_summary_ids[<span class="dv">0</span>], skip_special_tokens<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb39-50"><a href="#cb39-50" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;</span><span class="ch">\n</span><span class="st">🚀 PEGASUS Summary:</span><span class="ch">\n</span><span class="st">&quot;</span>, pegasus_summary)</span></code></pre></div>
+<pre><code>🔍 Running summarization on extracted text...
+
+🧠 FLAN-T5 Summary:
+ The Indian Army, Navy, and National Disaster Response Force (NDRF) carried out massive rescue operations, saving countless lives and reuniting people across the nation as volunteers and organizations came forward with donations, relief materials, and rehabilitation support for the affected communities.
+
+🚀 PEGASUS Summary:
+ Images courtesy of AFP, AP, EPA, Getty Images, Reuters and Reuters news agencies.&lt;n&gt; The floods also united people across the nation, as volunteers and organizations came forward with donations, relief materials, and rehabilitation support for the affected communities.&lt;n&gt;</code></pre>
+<div class="sourceCode" id="cb41"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true"></a><span class="op">!</span>pip install gradio <span class="op">--</span>quiet</span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true"></a></span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true"></a><span class="im">import</span> gradio <span class="im">as</span> gr</span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true"></a></span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true"></a><span class="co"># ---- Replace this function with your summarization logic ----</span></span>
+<span id="cb41-6"><a href="#cb41-6" aria-hidden="true"></a><span class="kw">def</span> summarize_text(text):</span>
+<span id="cb41-7"><a href="#cb41-7" aria-hidden="true"></a>    <span class="co"># Example placeholder</span></span>
+<span id="cb41-8"><a href="#cb41-8" aria-hidden="true"></a>    <span class="co"># Replace below lines with your actual summarization function/model</span></span>
+<span id="cb41-9"><a href="#cb41-9" aria-hidden="true"></a>    <span class="im">from</span> transformers <span class="im">import</span> pipeline</span>
+<span id="cb41-10"><a href="#cb41-10" aria-hidden="true"></a>    summarizer <span class="op">=</span> pipeline(<span class="st">&quot;summarization&quot;</span>, model<span class="op">=</span><span class="st">&quot;facebook/bart-large-cnn&quot;</span>)</span>
+<span id="cb41-11"><a href="#cb41-11" aria-hidden="true"></a>    summary <span class="op">=</span> summarizer(text, max_length<span class="op">=</span><span class="dv">130</span>, min_length<span class="op">=</span><span class="dv">30</span>, do_sample<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb41-12"><a href="#cb41-12" aria-hidden="true"></a>    <span class="cf">return</span> summary[<span class="dv">0</span>][<span class="st">&#39;summary_text&#39;</span>]</span>
+<span id="cb41-13"><a href="#cb41-13" aria-hidden="true"></a><span class="co"># --------------------------------------------------------------</span></span>
+<span id="cb41-14"><a href="#cb41-14" aria-hidden="true"></a></span>
+<span id="cb41-15"><a href="#cb41-15" aria-hidden="true"></a><span class="co"># Create Gradio interface</span></span>
+<span id="cb41-16"><a href="#cb41-16" aria-hidden="true"></a>interface <span class="op">=</span> gr.Interface(</span>
+<span id="cb41-17"><a href="#cb41-17" aria-hidden="true"></a>    fn<span class="op">=</span>summarize_text,</span>
+<span id="cb41-18"><a href="#cb41-18" aria-hidden="true"></a>    inputs<span class="op">=</span>gr.Textbox(lines<span class="op">=</span><span class="dv">10</span>, placeholder<span class="op">=</span><span class="st">&quot;Enter your text here...&quot;</span>),</span>
+<span id="cb41-19"><a href="#cb41-19" aria-hidden="true"></a>    outputs<span class="op">=</span>gr.Textbox(label<span class="op">=</span><span class="st">&quot;Summarized Text&quot;</span>),</span>
+<span id="cb41-20"><a href="#cb41-20" aria-hidden="true"></a>    title<span class="op">=</span><span class="st">&quot;📰 Text Summarization App&quot;</span>,</span>
+<span id="cb41-21"><a href="#cb41-21" aria-hidden="true"></a>    description<span class="op">=</span><span class="st">&quot;Paste a paragraph and get a concise summary using AI!&quot;</span>,</span>
+<span id="cb41-22"><a href="#cb41-22" aria-hidden="true"></a>    theme<span class="op">=</span><span class="st">&quot;soft&quot;</span>,</span>
+<span id="cb41-23"><a href="#cb41-23" aria-hidden="true"></a>    allow_flagging<span class="op">=</span><span class="st">&quot;never&quot;</span></span>
+<span id="cb41-24"><a href="#cb41-24" aria-hidden="true"></a>)</span>
+<span id="cb41-25"><a href="#cb41-25" aria-hidden="true"></a></span>
+<span id="cb41-26"><a href="#cb41-26" aria-hidden="true"></a><span class="co"># Launch in Colab</span></span>
+<span id="cb41-27"><a href="#cb41-27" aria-hidden="true"></a>interface.launch(share<span class="op">=</span><span class="va">True</span>)</span></code></pre></div>
+<pre><code>/usr/local/lib/python3.12/dist-packages/gradio/interface.py:415: UserWarning: The `allow_flagging` parameter in `Interface` is deprecated. Use `flagging_mode` instead.
+  warnings.warn(
+
+
+Colab notebook detected. To show errors in colab notebook, set debug=True in launch()
+* Running on public URL: https://f9b83b307001e73bb8.gradio.live
+
+This share link expires in 1 week. For free permanent hosting and GPU upgrades, run `gradio deploy` from the terminal in the working directory to deploy to Hugging Face Spaces (https://huggingface.co/spaces)</code></pre>
+<div>
+<iframe src="https://f9b83b307001e73bb8.gradio.live" width="100%" height="500" allow="autoplay; camera; microphone; clipboard-read; clipboard-write;" frameborder="0" allowfullscreen>
+</iframe>
+</div>
+<div class="sourceCode" id="cb43"><pre class="sourceCode python"><code class="sourceCode python"></code></pre></div>
